@@ -9,13 +9,13 @@
 opensky_client_id = "replace-with-your-opensky-client-id"
 opensky_client_secret = "replace-with-your-opensky-client-secret"
 
-# Optional AeroAPI key for route and aircraft enrichment.
+# FlightAware AeroAPI key for route and aircraft enrichment.
 # FlightAware provides 1000 free calls per month. Keep the monthly limit at or
 # below your plan so you do not burn through it unexpectedly.
 # https://www.flightaware.com/aeroapi
 flightaware_aeroapi_key = "replace-with-your-flightaware-aeroapi-key"
 
-# Optional AirportDB key for fuller airport names.
+# AirportDB key for fuller airport names.
 # https://airportdb.io
 airportdb_api_token = "replace-with-your-airportdb-api-token"
 
