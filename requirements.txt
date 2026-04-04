@@ -1,0 +1,9 @@
+certifi==2026.2.25
+charset-normalizer==3.4.6
+idna==3.11
+pygame==2.6.1
+requests==2.32.5
+RPLCD==1.4.0
+urllib3==2.6.3
+luma.oled==3.15.0
+Pillow==11.2.1

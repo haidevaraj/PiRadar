@@ -1,0 +1,111 @@
+# Copy this file to `config.toml` and then fill in your own values.
+# Most users will only need to edit the sections near the top.
+
+# API KEYS =====================================================================
+
+[api_keys]
+# OpenSky client credentials for nearby flight data.
+# https://opensky-network.org/data/api
+opensky_client_id = "replace-with-your-opensky-client-id"
+opensky_client_secret = "replace-with-your-opensky-client-secret"
+
+# Optional AeroAPI key for route and aircraft enrichment.
+# FlightAware provides 1000 free calls per month. Keep the monthly limit at or
+# below your plan so you do not burn through it unexpectedly.
+# https://www.flightaware.com/aeroapi
+flightaware_aeroapi_key = "replace-with-your-flightaware-aeroapi-key"
+
+# Optional AirportDB key for fuller airport names.
+# https://airportdb.io
+airportdb_api_token = "replace-with-your-airportdb-api-token"
+
+# COMMON SETTINGS ===============================================================
+
+[common]
+# Center point for flight tracking. Replace these with your own coordinates.
+latitude = 00.00000
+longitude = 00.00000
+# Radius in statute miles around the lat/lon above.
+radius_miles = 2
+# Do not alert again for the same ident until this many minutes pass.
+cooldown_minutes = 60
+# How often to poll for nearby flights.
+poll_interval_seconds = 30
+# Local quiet-hours window when airplane checks are paused.
+snooze_start_time = "23:00"
+snooze_end_time = "06:00"
+# Alert sound volume from 0.0 to 1.0.
+alert_volume = 0.1
+# Monthly FlightAware cap.
+monthly_call_limit = 1000
+# Set to false if you want to run without the OLED attached.
+display_enabled = true
+# Rotate if your screen is mounted differently.
+# Example: use 2 if the OLED is upside down.
+display_rotate = 0
+# How long to keep an airplane alert on screen after it appears.
+display_alert_hold_seconds = 300
+# How long each airplane fact stays on screen.
+display_fact_rotate_seconds = 120
+# Backlight idle timeout in seconds, if your hardware supports it.
+display_backlight_timeout_seconds = 300
+
+# ADVANCED SETTINGS =============================================================
+
+[opensky_advanced]
+min_request_interval_seconds = 1
+token_refresh_buffer_seconds = 300
+auth_timeout_seconds = 10
+request_timeout_seconds = 10
+rate_limit_backoff_seconds = 60
+radius_degrees_per_mile = 0.0145
+
+[flightaware_advanced]
+callsign_cache_ttl_minutes = 20
+request_timeout_seconds = 10
+lookup_window_days = 1
+max_pages = 1
+
+[airportdb_advanced]
+request_timeout_seconds = 10
+
+[audio_advanced]
+mixer_frequency = 44100
+mixer_size = -16
+mixer_channels = 2
+mixer_buffer = 4096
+
+[display_advanced]
+# Common SSD1309 I2C defaults for Raspberry Pi builds.
+i2c_bus = 1
+i2c_address = "0x3C"
+width = 128
+height = 64
+status_frame_seconds = 0.2
+status_message_seconds = 8
+fact_wipe_frame_seconds = 0.04
+recovery_retry_seconds = 5
+snooze_message_frequency = 3
+widget_labels = ["SPD", "HDG", "ALT", "VS"]
+default_airplane_fact = "Airliners have multiple independent navigation systems for redundancy."
+
+[location]
+request_timeout_seconds = 5
+user_agent = "FlightTracker/1.0"
+
+[logging]
+level_name = "INFO"
+format_string = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+max_bytes = 262144
+backup_count = 4
+
+[paths]
+airline_map_path = "assets/icao_to_airline_names.json"
+aircraft_type_map_path = "assets/aircraft_types.json"
+airplane_facts_path = "assets/airplane_facts.json"
+log_path = "flighttrackr.log"
+flightaware_usage_file = "flightaware_usage.json"
+airportdb_cache_file = "airportdb_seen_airports.json"
+silent_audio_path = "assets/silent.mp3"
+alert_audio_path = "assets/alert.mp3"
+chime_audio_path = "assets/chime.mp3"
