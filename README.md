@@ -1,5 +1,5 @@
 
-                                  "Turn your Pi into a flight radar station"
+                                  "Turn your Pi into a overhead flight detection system"
 
 ## My Fork
 
@@ -31,10 +31,6 @@ The TTS module automatically detects and uses gTTS if available, with automatic 
 ### Original Project
 See the original repository for the base FlightTrackr project.
 
-# FlightTrackr
-
-FlightTrackr watches nearby OpenSky traffic and logs a quick alert when a new flight enters your monitoring area. Audio alerts use `pygame` so the mixer can stay open between alerts, which is helpful on Raspberry Pi setups that pop when the audio device repeatedly powers up and down.
-
 ## What it does
 
 - Polls OpenSky for aircraft inside a small circle around your chosen latitude and longitude
@@ -59,20 +55,15 @@ This project was built around a Raspberry Pi 1 Model B+ running Raspberry Pi OS 
 
 The original build used:
 
-- Raspberry Pi 1 Model B+
+- Raspberry Pi5 or Pi4
 - 2.42" SSD1309 128x64 OLED over I2C
-- Small external speaker
-- Small 5V amplifier board
-- USB Wi-Fi dongle
-- Assorted Dupont jumper wires
-- A matching 3D-printed case
+- Blue tooth Speaker
+- Jumper wires
+
 
 Parts linked from the original build:
 
 - OLED display: `https://www.amazon.com/dp/B0CFF46319`
-- Speaker: `https://www.amazon.com/dp/B0FBRVCZQ6`
-- Amplifier: `https://www.amazon.com/dp/B0912CWB7Z`
-- Wi-Fi dongle: `https://www.amazon.com/dp/B0BNFKJPXS`
 - Jumper wires: `https://www.amazon.com/dp/B0B2L66ZFM`
 - 3D-printable case: `https://www.printables.com/model/1665489-flighttrackr-raspberry-pi-with-oled-screen-case-pi`
 
@@ -100,75 +91,7 @@ OLED wiring summary:
 | `SDA` | `GPIO2 / SDA1` | `3` | I2C data |
 | `SCL` | `GPIO3 / SCL1` | `5` | I2C clock |
 
-### 2. Wire the amplifier and speaker
 
-Do not connect a speaker directly to the Pi GPIO pins.
-
-The author's build does not use the Pi's 3.5mm audio jack.
-
-The amp is wired to Raspberry Pi physical pins `2`, `3`, `4`, `6`, `12`, `35`, and `40`.
-
-That means the author's build uses GPIO-side digital audio wiring, with the amp powered from `5V` and the OLED separately powered from `3.3V`.
-
-Author's reported amp wiring:
-
-- Pi physical pin `2` (`5V`) -> amplifier power
-- Pi physical pin `4` (`5V`) -> amplifier power
-- Pi physical pin `6` (`GND`) -> amplifier ground
-- Pi physical pin `12` (`GPIO18`) -> amplifier audio signal
-- Pi physical pin `35` (`GPIO19`) -> amplifier audio signal
-- Pi physical pin `40` (`GPIO21`) -> amplifier audio signal
-- Pi physical pin `3` (`GPIO2`) -> extra amp connection used in the author's build
-- Amplifier speaker output -> speaker terminals
-
-If your speaker is mono, use a single amplifier channel only. Do not tie the left and right amp outputs together.
-
-The original build used a small 5V mini amp board. Based on the reported GPIO wiring, it behaves more like a digital-audio amp module than a simple 3.5mm-input analog amp. Because I could not fully recover the exact Amazon listing details for that board, you should match these Pi pins against the labels printed on your amplifier board before powering it up.
-
-Amplifier wiring summary:
-
-| Amplifier side | Raspberry Pi connection | Physical pin | Notes |
-| --- | --- | --- | --- |
-| Power input | `5V` | `2` and `4` | The author's amp is powered from `5V` |
-| Ground | `GND` | `6` | Shared ground |
-| Audio/control | `GPIO18` | `12` | Used by the author's amp wiring |
-| Audio/control | `GPIO19` | `35` | Used by the author's amp wiring |
-| Audio/control | `GPIO21` | `40` | Used by the author's amp wiring |
-| Extra board-specific line | `GPIO2` | `3` | Present in the author's build; verify against your board labels |
-| Speaker output | Speaker terminals | n/a | Use one channel for mono if needed |
-
-### Wiring diagram
-
-```text
-Raspberry Pi 1 B+                    OLED (SSD1309 I2C)
-------------------                   ------------------
-Pin 1  (3.3V)  --------------------> VCC / VDD
-Pin 3  (GPIO2 SDA1) ---------------> SDA
-Pin 5  (GPIO3 SCL1) ---------------> SCL
-Pin 6  (GND)   --------------------> GND
-
-Raspberry Pi 1 B+                    Amplifier
-------------------                   ------------------
-Pin 2  (5V)   ---------------------> Power
-Pin 4  (5V)   ---------------------> Power
-Pin 6  (GND)  ---------------------> GND
-Pin 12 (GPIO18) -------------------> Signal
-Pin 35 (GPIO19) -------------------> Signal
-Pin 40 (GPIO21) -------------------> Signal
-Pin 3  (GPIO2)  -------------------> Extra board-specific line
-
-Amplifier                            Speaker
----------                            -------
-Speaker output  --------------------> Speaker terminals
-```
-
-### 3. Add Wi-Fi
-
-The Raspberry Pi 1 B+ needs a USB Wi-Fi adapter because it has no onboard wireless.
-
-- Plug the Wi-Fi dongle into any USB port
-- Configure Wi-Fi during Raspberry Pi OS imaging if possible
-- If you set up the card first and boot later, you can still join Wi-Fi from the Pi once it is running
 
 ### 4. Power and enclosure notes
 
@@ -176,8 +99,7 @@ The Raspberry Pi 1 B+ needs a USB Wi-Fi adapter because it has no onboard wirele
 - Keep the OLED on `3.3V`, not `5V`, unless your exact display board explicitly supports and expects `5V`
 - The author's amp is powered from `5V`
 - Keep jumper wires short and tidy around the OLED to reduce intermittent I2C issues
-- Mount the speaker so it can vent sound; tiny speakers sound much worse when sealed badly
-
+- 
 ## Raspberry Pi setup
 
 ### 1. Flash the OS
@@ -413,6 +335,8 @@ When the display is idle, it rotates airplane facts in random order without repe
 - If `pygame` cannot initialize the mixer, the app will keep running and log a warning instead of crashing.
 
 ## Author, license, and warranty
+
+This is a fork of [ajharnak/flighttrackr](https://github.com/ajharnak/flighttrackr) with the following additions:
 
 Author: A.J. Harnak
 
