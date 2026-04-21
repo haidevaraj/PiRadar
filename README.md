@@ -1,353 +1,494 @@
+# 🛩️ PiRadar
 
-                                  "Turn your Pi into a overhead flight detection system"
+> A real-time flight tracker for Raspberry Pi with voice alerts and OLED display
 
-## My Fork
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org)
+[![License: Source-Available](https://img.shields.io/badge/License-Source--Available-green.svg)](LICENSE.md)
+[![Raspberry Pi 5](https://img.shields.io/badge/Raspberry%20Pi-5-red.svg)](https://www.raspberrypi.com)
 
-This is a fork of [ajharnak/flighttrackr](https://github.com/ajharnak/flighttrackr) with the following additions:
+---
 
-### New Features
-- **Text-to-Speech Support** — Audio alerts via Bluetooth speaker
-- Configurable speech alerts for detected aircraft
-## Text-to-Speech (TTS) Feature
+## ✨ What is PiRadar?
 
-This fork adds audio alerts using **Google Text-to-Speech (gTTS)** with a real human Indian female voice.
+PiRadar monitors aircraft in your airspace and alerts you in real-time with:
+- 🔊 **Voice announcements** via Bluetooth speaker (Indian English or US English)
+- 📱 **Live OLED display** showing flight details (callsign, route, altitude, speed)
+- 🎵 **Smart audio alerts** (chime for normal flights, alert tone for emergency squawks)
+- 🌐 **OpenSky Network API** for continuous flight tracking
+- ✈️ **FlightAware enrichment** (optional) for airline names and routes
+- 🗺️ **Airport database lookups** for origin/destination info
 
-### TTS Engine
-- **Primary:** gTTS v2.3.1 (Google Text-to-Speech - High quality, real human voice)
-  - Language: Indian English (`en-IN`)
-  - Provides realistic female voice for flight alerts
-  
-- **Fallback:** pyttsx3 v2.90 (Synthetic voice if gTTS unavailable)
+---
 
-### Installation
-TTS dependencies are included in `requirements.txt`:
-```bash
-pip install -r requirements.txt
-```
+## 🚀 Quick Start
 
-### Usage
-The TTS module automatically detects and uses gTTS if available, with automatic fallback to pyttsx3.
+### Prerequisites
+- **Raspberry Pi 5** (or Pi 4, Pi Zero 2W)
+- **Python 3.11+**
+- **Bluetooth speaker** (or HDMI audio)
+- **Optional:** 2.42" SSD1309 OLED display (I2C)
+- **WiFi connection**
 
-### Original Project
-See the original repository for the base FlightTrackr project.
-
-## What it does
-
-- Polls OpenSky for aircraft inside a small circle around your chosen latitude and longitude
-- Alerts once per callsign, then suppresses repeats for your configured cooldown window
-- Pauses normal polling during your configured snooze hours
-- Uses FlightAware only for callsigns that look like known airlines, which avoids spending API calls on many local GA flights
-- Stops FlightAware enrichment entirely once your configured monthly cap is reached
-- Plays the stronger `alert.mp3` sound for squawk `7700` or `7500`, and `chime.mp3` for normal alerts
-- Shows active alerts on the OLED, then rotates airplane facts while idle
-
-## What you need
-
-- Python 3.11+
-- `pip`
-- An OpenSky Network API client ID and client secret
-- A working audio output on your Raspberry Pi or Linux system
-- Optional: a 2.42" SSD1309 OLED over I2C
-
-## Hardware used for the author's build
-
-This project was built around a Raspberry Pi 1 Model B+ running Raspberry Pi OS Lite (formerly Raspbian Lite). Because that Pi does not have built-in Wi-Fi, it also uses a USB Wi-Fi adapter.
-
-The original build used:
-
-- Raspberry Pi5 or Pi4
-- 2.42" SSD1309 128x64 OLED over I2C
-- Blue tooth Speaker
-- Jumper wires
-
-
-Parts linked from the original build:
-
-- OLED display: `https://www.amazon.com/dp/B0CFF46319`
-- Jumper wires: `https://www.amazon.com/dp/B0B2L66ZFM`
-- 3D-printable case: `https://www.printables.com/model/1665489-flighttrackr-raspberry-pi-with-oled-screen-case-pi`
-
-The OLED listing resolves to a HiLetgo-style 2.42" SSD1309 128x64 module with a 4-pin I2C header. The jumper wire kit resolves to a standard 120-wire Dupont assortment. The other linked parts were used in the original build, but the exact Amazon product text was not easily recoverable when this README was updated, so the wiring guidance below stays generic where needed.
-
-## Hardware assembly
-
-### 1. Wire the OLED
-
-For a 4-pin I2C SSD1309 OLED:
-
-- OLED `GND` -> Pi physical pin `6` (`GND`)
-- OLED `VDD` or `VCC` -> Pi physical pin `1` (`3.3V`)
-- OLED `SCL` -> Pi physical pin `5` (`GPIO3 / SCL1`)
-- OLED `SDA` -> Pi physical pin `3` (`GPIO2 / SDA1`)
-
-This project expects the display on I2C bus `1` at address `0x3C`, which is the default in `config.toml`.
-
-OLED wiring summary:
-
-| OLED pin | Raspberry Pi pin | Physical pin | Notes |
-| --- | --- | --- | --- |
-| `GND` | `GND` | `6` | Ground |
-| `VCC` / `VDD` | `3.3V` | `1` | The author's screen is powered from `3.3V` |
-| `SDA` | `GPIO2 / SDA1` | `3` | I2C data |
-| `SCL` | `GPIO3 / SCL1` | `5` | I2C clock |
-
-
-
-### 4. Power and enclosure notes
-
-- Use a stable Pi power supply
-- Keep the OLED on `3.3V`, not `5V`, unless your exact display board explicitly supports and expects `5V`
-- The author's amp is powered from `5V`
-- Keep jumper wires short and tidy around the OLED to reduce intermittent I2C issues
-- 
-## Raspberry Pi setup
-
-### 1. Flash the OS
-
-Use Raspberry Pi Imager and install Raspberry Pi OS Lite.
-
-Helpful options to set during imaging:
-
-- hostname
-- Wi-Fi SSID and password
-- SSH enabled
-- username and password
-- locale and timezone
-
-### 2. First boot
-
-After the Pi boots:
+### 1️⃣ Clone & Setup
 
 ```bash
-sudo apt update
-sudo apt upgrade -y
-```
-
-### 3. Enable I2C
-
-Run:
-
-```bash
-sudo raspi-config
-```
-
-Then enable:
-
-- `Interface Options` -> `I2C` -> `Enable`
-
-Reboot afterward:
-
-```bash
-sudo reboot
-```
-
-### 4. Verify the OLED is visible
-
-Install I2C tools:
-
-```bash
-sudo apt install -y i2c-tools
-```
-
-Then scan bus 1:
-
-```bash
-i2cdetect -y 1
-```
-
-You should usually see `3c` in the grid if the OLED is wired correctly.
-
-### 5. Install the app
-
-Install the Python dependencies:
-
-```bash
+git clone https://github.com/haidevaraj/PiRadar.git
+cd PiRadar
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-If your audio hardware pops at the start and end of each alert, add a silent looping MP3 at `assets/silent.mp3`. When present, FlightTrackr will keep that file playing at zero volume in the background so the audio path stays open.
-
-On older Raspberry Pi hardware, `pip install` can take a while. A Pi 1 B+ is absolutely usable here, but it is slow by modern standards.
-
-## Configuration
-
-1. Copy the example config:
+### 2️⃣ Configure
 
 ```bash
 cp config.example.toml config.toml
+nano config.toml
 ```
 
-2. Open `config.toml`.
-3. Fill in your own API keys in `[api_keys]`.
-4. Set your own `latitude` and `longitude` in `[common]`.
-5. Adjust `radius_miles`, `cooldown_minutes`, `snooze_start_time`, `snooze_end_time`, and `alert_volume` to taste.
+Fill in:
+- `latitude` & `longitude` (your location)
+- `radius_miles` (detection range)
+- OpenSky API credentials
+- Bluetooth speaker volume
+- Snooze hours (optional)
 
-The top of `config.toml` is arranged for the settings most people care about first:
-
-- `[api_keys]` for OpenSky, FlightAware, and AirportDB credentials
-- `[common]` for location, radius, snooze hours, volume, usage caps, and the main OLED timing knobs
-- advanced sections below for request timeouts, cache TTLs, logging, paths, and low-level display settings
-
-The Python loader in `settings_loader.py` reads `config.toml` and then applies environment variables as overrides. That makes `config.toml` the easiest file for most users to edit, while still letting you keep secrets or deployment-specific values in env vars.
-
-If `config.toml` is missing, the app will tell you to copy `config.example.toml` first.
-
-### Required vs optional keys
-
-- Fill in all four entries in `[api_keys]`
-- This project is designed around OpenSky, FlightAware AeroAPI, and AirportDB all being configured
-
-## API accounts you will need
-
-### OpenSky
-
-- Sign up and create API credentials: `https://opensky-network.org/data/api`
-- Put them in `config.toml` as `opensky_client_id` and `opensky_client_secret`
-
-### FlightAware AeroAPI
-
-- Pricing and product page: `https://www.flightaware.com/commercial/aeroapi/`
-- Developer portal: `https://www.flightaware.com/aeroapi/portal/account`
-- Put the API key in `config.toml` as `flightaware_aeroapi_key`
-
-Plan on needing billing setup for FlightAware. Their AeroAPI product is usage-based, and in practice you should expect to provide a credit card or other payment method when enabling it.
-
-### AirportDB
-
-- Sign up for an API token: `https://airportdb.io/`
-- Put the token in `config.toml` as `airportdb_api_token`
-
-Put all of your credentials directly into `config.toml`. That is the intended setup for this project and the simplest path for most users.
-
-The default OLED settings in `config.toml` assume I2C bus `1`, address `0x3C`, and normal orientation. If your display uses a different I2C address or is mounted upside down, adjust those values in the display sections of `config.toml`.
-
-## Run
+### 3️⃣ Run
 
 ```bash
 python3 main.py
 ```
 
-On a Raspberry Pi 1 B+, especially on Raspberry Pi OS Lite and older storage, it may take a few minutes after power-on before you see useful activity on the screen. The Pi has to boot Linux, bring up Wi-Fi, start Python, load the OLED stack, and make its first API calls. A blank or quiet screen for the first couple of minutes is not necessarily a failure.
+See flights detected on your OLED and hear voice alerts! 🎉
 
-## Start on boot
+---
 
-If you want FlightTrackr to launch automatically whenever the Pi powers on, set it up as a `systemd` service.
+## 📋 Hardware Setup
 
-### 1. Find your project path
+### What You'll Need
 
-Example:
+| Component | Purpose | Link |
+|-----------|---------|------|
+| **Raspberry Pi 5 4GB** | Main processor | [GigaParts](https://www.gigaparts.com) |
+| **2.42" SSD1309 OLED** | Flight display | [Amazon](https://www.amazon.com/dp/B0CFF46319) |
+| **Bluetooth Speaker** | Voice alerts | Any BT speaker |
+| **Dupont Jumper Wires (120x)** | I2C connections | [Amazon](https://www.amazon.com/dp/B0B2L66ZFM) |
+| **USB-C Power Supply** | Pi 5 power (5.1V/5A) | Included in starter kit |
+
+### Wiring the OLED
+
+```
+OLED Pin → Raspberry Pi Pin
+─────────────────────────────
+GND      → Pin 6 (GND)
+VCC      → Pin 1 (3.3V)
+SDA      → Pin 3 (GPIO2)
+SCL      → Pin 5 (GPIO3)
+```
+
+**Diagram:**
+```
+┌─────────────────────────────┐
+│     Raspberry Pi 5          │
+├─────────────────────────────┤
+│ Pin 1  ├─────→ 3.3V (VCC)   │
+│ Pin 3  ├─────→ SDA          │
+│ Pin 5  ├─────→ SCL          │
+│ Pin 6  ├─────→ GND          │
+└─────────────────────────────┘
+        ↓
+    OLED Display
+```
+
+**Verify connection:**
+```bash
+i2cdetect -y 1
+# Should show "3c" in the grid
+```
+
+---
+
+## 🔊 Voice Alerts
+
+### TTS Engine Selection
+
+PiRadar uses **Coqui TTS** for offline speech synthesis (or **gTTS** with internet):
+
+#### Option 1: **Coqui TTS** (Recommended - Offline) ⭐
+
+✅ Works completely offline  
+✅ High quality, natural voice  
+✅ No internet required after first model download  
 
 ```bash
-pwd
+# Already included in requirements.txt
+pip install -r requirements.txt
 ```
 
-Assume the project lives at:
+#### Option 2: **gTTS** (Online)
 
-```text
-/home/pi/flighttrackr
+✅ Slightly more natural voice  
+⚠️ Requires internet connection  
+⚠️ Slower (1-2s per announcement)  
+
+To switch, edit `main.py`:
+```python
+from text_to_speech import TextToSpeech
+tts = TextToSpeech(volume=100, language="en-IN")  # en-IN = Indian English
 ```
 
-### 2. Create a service file
+#### Option 3: **pyttsx3** (Fallback)
+
+✅ Fully offline  
+⚠️ More robotic voice  
+
+Automatically used if Coqui/gTTS unavailable.
+
+---
+
+## ⚙️ Configuration
+
+Edit `config.toml` to customize:
+
+```toml
+[api_keys]
+opensky_client_id = "YOUR_ID"
+opensky_client_secret = "YOUR_SECRET"
+flightaware_aeroapi_key = ""      # Leave blank to disable
+airportdb_api_token = ""
+
+[common]
+latitude = 29.7604               # Houston example
+longitude = -95.3698
+radius_miles = 30
+poll_interval_seconds = 10
+cooldown_minutes = 15            # Alert cooldown per flight
+alert_volume = 0.8
+
+# Quiet hours (snooze)
+snooze_start_time = "22:00"      # 10 PM
+snooze_end_time = "07:00"        # 7 AM
+
+# Text-to-speech
+enable_airline_announcement = true
+announcement_delay_seconds = 0.5
+
+# FlightAware usage cap
+monthly_call_limit = 0           # 0 = disabled
+```
+
+---
+
+## 📡 API Setup
+
+### OpenSky Network (Free, Required)
+
+1. Sign up: https://opensky-network.org/data/api
+2. Create credentials
+3. Add to `config.toml`:
+```toml
+opensky_client_id = "YOUR_ID"
+opensky_client_secret = "YOUR_SECRET"
+```
+
+### FlightAware AeroAPI (Optional, Paid)
+
+Provides airline names, routes, aircraft type.
+
+1. Sign up: https://www.flightaware.com/commercial/aeroapi/
+2. Add credit card (usage-based pricing)
+3. Get API key: https://www.flightaware.com/aeroapi/portal
+4. Add to `config.toml`:
+```toml
+flightaware_aeroapi_key = "YOUR_KEY"
+```
+
+**💡 Pro tip:** Set `monthly_call_limit = 50` to cap costs at ~$1/month
+
+### AirportDB (Free, Optional)
+
+Airport name lookups (e.g., "Houston Hobby" instead of "HOU").
+
+1. Sign up: https://airportdb.io/
+2. Get API token
+3. Add to `config.toml`:
+```toml
+airportdb_api_token = "YOUR_TOKEN"
+```
+
+---
+
+## 🐧 Raspberry Pi Setup
+
+### 1. Flash OS
+
+Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
+- OS: **Raspberry Pi OS Lite** (64-bit recommended)
+- Username: `pi`
+- Enable SSH
+- Configure WiFi
+
+### 2. First Boot
 
 ```bash
-sudo nano /etc/systemd/system/flighttrackr.service
+sudo apt update && sudo apt upgrade -y
 ```
 
-Paste this in, adjusting the paths and username if needed:
+### 3. Enable I2C (for OLED)
 
+```bash
+sudo raspi-config
+# Interface Options → I2C → Enable → Finish
+sudo reboot
+```
+
+### 4. Verify I2C
+
+```bash
+sudo apt install -y i2c-tools
+i2cdetect -y 1
+# Look for "3c" in the grid
+```
+
+### 5. Install PiRadar
+
+```bash
+cd ~
+git clone https://github.com/haidevaraj/PiRadar.git
+cd PiRadar
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp config.example.toml config.toml
+# Edit config.toml with your API keys and location
+python3 main.py
+```
+
+---
+
+## 🤖 Bluetooth Speaker Setup
+
+### Pair Speaker
+
+```bash
+bluetoothctl
+```
+
+Inside bluetoothctl shell:
+```
+power on
+scan on
+# Wait for speaker to appear
+pair AA:BB:CC:DD:EE:FF
+trust AA:BB:CC:DD:EE:FF
+connect AA:BB:CC:DD:EE:FF
+exit
+```
+
+### Test Audio
+
+```bash
+paplay /usr/share/sounds/alsa/Front_Center.wav
+```
+
+Should hear sound from speaker! ✅
+
+---
+
+## 🔄 Auto-Start on Boot
+
+### Create Systemd Service
+
+```bash
+sudo nano /etc/systemd/system/PiRadar.service
+```
+
+Paste:
 ```ini
 [Unit]
-Description=FlightTrackr
+Description=PiRadar Flight Tracker
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/flighttrackr
-ExecStart=/home/pi/flighttrackr/.venv/bin/python /home/pi/flighttrackr/main.py
+WorkingDirectory=/home/pi/PiRadar
+ExecStart=/home/pi/PiRadar/.venv/bin/python /home/pi/PiRadar/main.py
 Restart=always
 RestartSec=10
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### 3. Enable the service
+### Enable Service
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable flighttrackr.service
-sudo systemctl start flighttrackr.service
+sudo systemctl enable PiRadar.service
+sudo systemctl start PiRadar.service
 ```
 
-### 4. Check status
+### View Logs
 
 ```bash
-sudo systemctl status flighttrackr.service
+sudo journalctl -u PiRadar.service -f
 ```
 
-### 5. View logs
+**Useful commands:**
+```bash
+sudo systemctl status PiRadar.service
+sudo systemctl stop PiRadar.service
+sudo systemctl restart PiRadar.service
+```
+
+---
+
+## 🎨 Display Features
+
+### Alert Screen
+When a flight is detected:
+```
+┌────────────────────────────────┐
+│  UAL1234                       │  ← Callsign
+│  Houston IAH → Denver DEN      │  ← Route
+│  SPD: 450kt  HDG: 315°  ALT:35K │  ← Flight data
+│  VS: 1200fpm ▲                 │  ← Vertical speed
+└────────────────────────────────┘
+```
+
+### Idle Screen
+Shows rotating airplane facts while waiting for flights.
+
+### Snooze Indicator
+Displays "SNOOZED UNTIL 7:00 AM" during quiet hours.
+
+---
+
+## 📊 Alert Behavior
+
+When a new flight enters your detection radius:
+
+1. 🔊 **Alert sound plays** (chime.mp3 or alert.mp3)
+2. 📱 **OLED shows flight details**
+3. 🗣️ **Voice announcement** (if enabled)
+   - "Flight alert: United Airlines. From Houston IAH to Denver DEN."
+4. 📝 **Logged to console**
+
+**Squawk codes:**
+- `7700` → Emergency (plays alert.mp3)
+- `7500` → Hijack (plays alert.mp3)
+- Others → Normal (plays chime.mp3)
+
+**Cooldown:** Same callsign won't re-alert for `cooldown_minutes` (default: 15)
+
+---
+
+## 🛠️ Troubleshooting
+
+### OLED Not Showing
 
 ```bash
-journalctl -u flighttrackr.service -f
+# Check I2C connection
+i2cdetect -y 1
+# Should show "3c"
+
+# Check wiring: GND, VCC, SDA, SCL
+# Try raising Pi I2C voltage to 5V (if display supports it)
 ```
 
-Useful service commands:
+### No Audio/Bluetooth Not Working
 
-- Start: `sudo systemctl start flighttrackr.service`
-- Stop: `sudo systemctl stop flighttrackr.service`
-- Restart: `sudo systemctl restart flighttrackr.service`
-- Disable autostart: `sudo systemctl disable flighttrackr.service`
+```bash
+# Check speaker is paired
+bluetoothctl devices
 
-## How FlightAware usage is minimized
+# Restart PulseAudio
+pulseaudio --kill
+pulseaudio --start
 
-- FlightAware is only queried for callsigns whose prefix matches a known airline in `assets/icao_to_airline_names.json`
-- Callsign lookups are cached for a short time, so the same ident is not re-fetched immediately
-- Re-alerts are suppressed by `cooldown_minutes`, so the same ident does not repeatedly trigger enrichments
-- Snooze hours stop normal polling during quiet times
-- `monthly_call_limit` hard-stops FlightAware usage when your cap is reached
+# Test audio
+paplay /usr/share/sounds/alsa/Front_Center.wav
+```
 
-This means you can still see nearby aircraft from OpenSky without necessarily spending a FlightAware lookup on every plane overhead.
+### API Errors
 
-## Alert behavior
+```bash
+# Check OpenSky credentials
+curl -u YOUR_ID:YOUR_SECRET "https://opensky-network.org/api/states/all"
+# Should return JSON
 
-When a new flight is detected inside the configured radius, the app will:
+# Check FlightAware key
+curl -H "x-apikey: YOUR_KEY" "https://aeroapi.flightaware.com/aeroapi/me"
+```
 
-- Play `assets/chime.mp3` for normal alerts
-- Play `assets/alert.mp3` for squawk `7700` or `7500`
-- Log the flight details to the console
-- Show alerts and system status on the OLED when enabled
-- Render a dashboard-style alert layout with a callsign header, route/type detail line, and bottom widgets for `SPD`, `HDG`, `ALT`, and `VS`
-- Translate common aircraft type codes into friendlier names via `assets/aircraft_types.json`
+### High CPU Usage
 
-If FlightAware is configured and the callsign looks like a known airline, the alert may also include:
+```bash
+# Increase poll_interval_seconds in config.toml
+# Default is 10 seconds, try 30 or 60
+```
 
-- origin and destination airports
-- a cleaned-up aircraft type like `CRJ-900` instead of a longer manufacturer-prefixed label
+---
 
-When the display is idle, it rotates airplane facts in random order without repeats until the full fact list has been shown.
+## 📦 Dependencies
 
-## Notes
+```
+pygame==2.5.2          # Audio playback
+requests==2.31.0       # HTTP client
+pydantic==2.4.2        # Config validation
+TTS==0.22.0            # Coqui TTS (offline speech)
+pyttsx3==2.90          # Fallback TTS
+gTTS==2.3.1            # Google TTS (optional)
+```
 
-- If `pygame` cannot initialize the mixer, the app will keep running and log a warning instead of crashing.
+See `requirements.txt` for full list.
 
-## Author, license, and warranty
+---
 
-This is a fork of [ajharnak/flighttrackr](https://github.com/ajharnak/flighttrackr) with the following additions:
+## 📝 License
 
-Author: A.J. Harnak
+**Source-available for personal/hobbyist use only.**
 
-If you like this project, consider buying me a coffee - https://buymeacoffee.com/ajharnak . Totally optional but greatly appreciated!
+You may NOT use this project for commercial purposes without written permission.
 
-This project is source-available for personal, hobbyist, educational, and other non-commercial use only.
+See [LICENSE.md](LICENSE.md) for full terms.
 
-You may not use this project, or a modified version of it, for commercial purposes without explicit written permission from the author.
+**Original author:** [A.J. Harnak](https://github.com/ajharnak/flighttrackr)  
+**Fork author:** [haidevaraj](https://github.com/haidevaraj)
 
-This project is provided as-is, with no warranty of any kind. That includes no warranty for correctness, reliability, fitness for a particular purpose, hardware safety, API costs, or regulatory compliance. You are responsible for your own hardware, accounts, wiring, credentials, and operating costs.
+---
 
-See `LICENSE.md` for the full terms.
+## ☕ Support
 
+If you find PiRadar useful, consider supporting the original author:
 
+[Buy A.J. Harnak a coffee](https://buymeacoffee.com/ajharnak) ☕
+
+---
+
+## 🐛 Contributing
+
+Found a bug? Want a feature?
+
+1. Fork the repo
+2. Create a feature branch (`git checkout -b feature/amazing-idea`)
+3. Commit changes (`git commit -am 'Add amazing idea'`)
+4. Push to branch (`git push origin feature/amazing-idea`)
+5. Open a Pull Request
+
+---
+
+## 📚 Resources
+
+- [OpenSky API Docs](https://opensky-network.org/apidoc/)
+- [FlightAware AeroAPI](https://www.flightaware.com/aeroapi/portal/)
+- [Raspberry Pi Docs](https://www.raspberrypi.com/documentation/)
+- [Coqui TTS](https://github.com/coqui-ai/TTS)
+
+---
+
+**Happy tracking! 🛩️✈️**
