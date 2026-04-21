@@ -7,3 +7,6 @@ RPLCD==1.4.0
 urllib3==2.6.3
 luma.oled==3.15.0
 Pillow==11.2.1
+gTTS==2.3.1
+pyttsx3==2.90
+ffmpeg-python

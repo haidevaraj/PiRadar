@@ -6,6 +6,25 @@ This is a fork of [ajharnak/flighttrackr](https://github.com/ajharnak/flighttrac
 ### New Features
 - **Text-to-Speech Support** — Audio alerts via Bluetooth speaker
 - Configurable speech alerts for detected aircraft
+## Text-to-Speech (TTS) Feature
+
+This fork adds audio alerts using **Google Text-to-Speech (gTTS)** with a real human Indian female voice.
+
+### TTS Engine
+- **Primary:** gTTS v2.3.1 (Google Text-to-Speech - High quality, real human voice)
+  - Language: Indian English (`en-IN`)
+  - Provides realistic female voice for flight alerts
+  
+- **Fallback:** pyttsx3 v2.90 (Synthetic voice if gTTS unavailable)
+
+### Installation
+TTS dependencies are included in `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
+
+### Usage
+The TTS module automatically detects and uses gTTS if available, with automatic fallback to pyttsx3.
 
 ### Original Project
 See the original repository for the base FlightTrackr project.
