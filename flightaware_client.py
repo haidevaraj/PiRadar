@@ -114,6 +114,11 @@ class FlightAwareClient:
         now = datetime.now(UTC)
         cached = self._cache.get(callsign)
         if cached is not None and now < cached.expires_at:
+            logger.info(
+                "FlightAware cache hit for %s. Using persistent data (expires %s).",
+                callsign,
+                cached.expires_at.strftime("%Y-%m-%d %H:%M")
+            )
             return cached.details
 
         if not self.usage_tracker.try_consume(now=now):

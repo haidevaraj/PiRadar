@@ -250,37 +250,13 @@ class FlightTracker:
         self.enable_airline_announcement = enable_airline_announcement
         self.aeroapi_max_altitude_feet = aeroapi_max_altitude_feet
         
-        # Sequential announcement processing
-        self._announcement_queue: Queue = Queue()
-        self._announcement_lock = threading.Lock()
-        self._announcement_thread_active = False
-        self._start_announcement_processor()
+        # Lock to ensure only one alert (Sound + TTS) is processed at a time
+        self._alert_lock = threading.Lock()
         
         # AirportDB configuration (free with internal caching)
         self.enable_airportdb_lookup = enable_airportdb_lookup
         self.airportdb_throttle_seconds = airportdb_throttle_minutes * 60
         self._last_airportdb_call = 0.0
-
-    def _start_announcement_processor(self) -> None:
-        """Start the background thread that processes announcements sequentially."""
-        if self._announcement_thread_active:
-            return
-        self._announcement_thread_active = True
-        processor_thread = threading.Thread(
-            target=self._announcement_processor_loop,
-            daemon=True,
-        )
-        processor_thread.start()
-
-    def _announcement_processor_loop(self) -> None:
-        """Process announcements one at a time from the queue."""
-        while self._announcement_thread_active:
-            # Block until an announcement is available. Use None as sentinel to stop.
-            announcement = self._announcement_queue.get()
-            if announcement is None:
-                break
-            airline, callsign, origin, destination = announcement
-            self._play_announcement(airline, callsign, origin, destination)
 
     def _play_announcement(
         self,
@@ -288,17 +264,23 @@ class FlightTracker:
         callsign: str,
         origin: str | None,
         destination: str | None,
+        altitude: float | None = None,
+        speed: float | None = None,
+        heading: float | None = None,
     ) -> None:
         """Play a single announcement to audio."""
         try:
             logger.info(
-                "Playing announcement: %s %s %s -> %s",
+                "Playing announcement: %s %s %s -> %s (Alt: %s, Spd: %s, Hdg: %s)",
                 airline,
                 callsign,
                 origin,
                 destination,
+                altitude,
+                speed,
+                heading,
             )
-            self.tts_player.speak_flight_alert(airline, callsign, origin, destination)
+            self.tts_player.speak_flight_alert(airline, callsign, origin, destination, altitude, speed, heading)
             logger.info("Announcement completed")
         except Exception as exc:
             logger.error("Text-to-speech announcement failed: %s", exc)
@@ -363,80 +345,61 @@ class FlightTracker:
                     self._show_display_error("Alert Error", "Skipped flight")
 
     def emit_alert(self, flight: FlightState) -> None:
-        flight_details = None
-        airline = get_airline_name(flight.callsign, self.airline_map)
-        
-        # Determine if we should spend an AeroAPI call (curbing high-altitude overflights)
-        should_query_aeroapi = bool(airline and self.flightaware_client)
-        if should_query_aeroapi and self.aeroapi_max_altitude_feet > 0:
-            alt_feet = (flight.baro_altitude or 0) * 3.28084
-            if alt_feet > self.aeroapi_max_altitude_feet:
-                should_query_aeroapi = False
-                logger.info("Skipping AeroAPI for %s: altitude %.0f ft exceeds limit", flight.callsign, alt_feet)
+        # Use a lock to ensure that if multiple flights are detected, they alert one after another
+        with self._alert_lock:
+            flight_details = None
+            airline = get_airline_name(flight.callsign, self.airline_map)
+            
+            # Determine if we should spend an AeroAPI call
+            should_query_aeroapi = bool(airline and self.flightaware_client)
+            if should_query_aeroapi and self.aeroapi_max_altitude_feet > 0:
+                alt_feet = (flight.baro_altitude or 0) * 3.28084
+                if alt_feet > self.aeroapi_max_altitude_feet:
+                    should_query_aeroapi = False
 
-        if should_query_aeroapi:
-            flight_details = self.flightaware_client.get_flight_details(flight.callsign)
-        
-        # Only call AirportDB if smart checks allow it (no throttling, AirportDB is free)
-        if self._should_call_airportdb(flight_details):
-            flight_details = self.airportdb_client.enrich_flight_details(flight_details)
-            self._last_airportdb_call = time.monotonic()
-        
-        # Trim airport codes from labels for display
-        if flight_details is not None:
-            flight_details = models.FlightDetails(
-                origin=self._trim_airport_code(flight_details.origin),
-                destination=self._trim_airport_code(flight_details.destination),
-                aircraft_type=flight_details.aircraft_type,
+            if should_query_aeroapi:
+                flight_details = self.flightaware_client.get_flight_details(flight.callsign)
+            
+            if self._should_call_airportdb(flight_details):
+                flight_details = self.airportdb_client.enrich_flight_details(flight_details)
+                self._last_airportdb_call = time.monotonic()
+            
+            if flight_details is not None:
+                flight_details = models.FlightDetails(
+                    origin=self._trim_airport_code(flight_details.origin),
+                    destination=self._trim_airport_code(flight_details.destination),
+                    aircraft_type=flight_details.aircraft_type,
+                )
+
+            alert = build_alert_event(
+                flight, self.airline_map, self.aircraft_type_map, self.assets_dir, flight_details=flight_details
             )
-
-        alert = build_alert_event(
-            flight,
-            self.airline_map,
-            self.aircraft_type_map,
-            self.assets_dir,
-            flight_details=flight_details,
-        )
-        alert_channel = self.audio_player.play(alert.sound_path)
-        self.display.show_alert(alert)
-        
-        # Wait for the specific alert sound channel to finish playing
-        # This ensures announcements start immediately after sound ends with zero gap
-        if alert_channel is not None:
-            while alert_channel.get_busy():
-                time.sleep(0.01)  # Check every 10ms
-        
-        # Queue announcement for sequential processing immediately after sound finishes
-        if self.enable_airline_announcement and airline and self.tts_player:
-            origin = flight_details.origin if flight_details is not None else None
-            destination = flight_details.destination if flight_details is not None else None
-            self._announcement_queue.put((airline, flight.callsign, origin, destination))
-        
-        logger.info("\n----------------------------")
-        logger.info("%s", alert.line_1)
-        logger.info("%s", alert.line_2)
-
-    def _announce_airline_in_background(
-        self,
-        airline: str,
-        callsign: str,
-        origin: str | None,
-        destination: str | None,
-    ) -> None:
-        """Announce airline name after alert sound plays (in background thread)."""
-        try:
-            # Alert sound already finished, start announcement immediately (no delay)
-            logger.info(
-                "Starting airline announcement: %s %s %s -> %s",
-                airline,
-                callsign,
-                origin,
-                destination,
-            )
-            self.tts_player.speak_flight_alert(airline, callsign, origin, destination)
-            logger.info("Airline announcement completed")
-        except Exception as exc:
-            logger.error("Text-to-speech announcement failed: %s", exc)
+            
+            alert_channel = self.audio_player.play(alert.sound_path)
+            self.display.show_alert(alert)
+            
+            # 1. Wait for chime to finish
+            if alert_channel is not None:
+                while alert_channel.get_busy():
+                    time.sleep(0.01)
+            
+            # 2. Play announcement (now blocking)
+            if self.enable_airline_announcement and airline and self.tts_player:
+                origin = flight_details.origin if flight_details else None
+                destination = flight_details.destination if flight_details else None
+                self._play_announcement(
+                    airline, 
+                    flight.callsign, 
+                    origin, 
+                    destination,
+                    altitude=flight.altitude_m,
+                    speed=flight.velocity_ms,
+                    heading=flight.heading_deg
+                )
+            
+            logger.info("\n----------------------------")
+            logger.info("%s", alert.line_1)
+            logger.info("%s", alert.line_2)
 
     def run_forever(self) -> None:
         self.display_startup_banner()

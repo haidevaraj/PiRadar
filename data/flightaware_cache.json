@@ -78,5 +78,109 @@
       "destination": "KIAH",
       "aircraft_type": "BCS1"
     }
+  },
+  "NKS462": {
+    "expires_at": "2026-04-22T19:11:44.535414+00:00",
+    "details": {
+      "origin": "KLGA",
+      "destination": "KIAH",
+      "aircraft_type": "A21N"
+    }
+  },
+  "SKW5946": {
+    "expires_at": "2026-04-22T19:13:52.856425+00:00",
+    "details": {
+      "origin": "MMSP",
+      "destination": "KIAH",
+      "aircraft_type": "E75L"
+    }
+  },
+  "UAL470": {
+    "expires_at": "2026-04-22T19:14:00.592752+00:00",
+    "details": {
+      "origin": "KMIA",
+      "destination": "KIAH",
+      "aircraft_type": "B738"
+    }
+  },
+  "UAL2275": {
+    "expires_at": "2026-04-22T19:17:03.946308+00:00",
+    "details": {
+      "origin": "KPIT",
+      "destination": "KIAH",
+      "aircraft_type": "B739"
+    }
+  },
+  "UAL6": {
+    "expires_at": "2026-04-22T19:19:12.350318+00:00",
+    "details": {
+      "origin": "RJAA",
+      "destination": "KIAH",
+      "aircraft_type": "B789"
+    }
+  },
+  "XSR315": {
+    "expires_at": "2026-04-22T19:19:20.284251+00:00",
+    "details": {
+      "origin": "KSGR",
+      "destination": "KFTW",
+      "aircraft_type": "C56X"
+    }
+  },
+  "SWA4389": {
+    "expires_at": "2026-04-22T19:20:23.239024+00:00",
+    "details": {
+      "origin": "KATL",
+      "destination": "KSAT",
+      "aircraft_type": "B737"
+    }
+  },
+  "UAL672": {
+    "expires_at": "2026-04-22T19:40:07.039091+00:00",
+    "details": {
+      "origin": "KEWR",
+      "destination": "KIAH",
+      "aircraft_type": "B39M"
+    }
+  },
+  "UAL2406": {
+    "expires_at": "2026-04-22T19:41:15.421148+00:00",
+    "details": {
+      "origin": "KMCO",
+      "destination": "KIAH",
+      "aircraft_type": "B739"
+    }
+  },
+  "UCA4845": {
+    "expires_at": "2026-04-22T19:46:18.415911+00:00",
+    "details": {
+      "origin": "KSHV",
+      "destination": "KIAH",
+      "aircraft_type": "E145"
+    }
+  },
+  "UAL1341": {
+    "expires_at": "2026-04-22T19:47:04.220702+00:00",
+    "details": {
+      "origin": "KBNA",
+      "destination": "KIAH",
+      "aircraft_type": "A319"
+    }
+  },
+  "SKW5442": {
+    "expires_at": "2026-04-22T19:48:30.884594+00:00",
+    "details": {
+      "origin": "KLIT",
+      "destination": "KIAH",
+      "aircraft_type": "CRJ2"
+    }
+  },
+  "CRE345": {
+    "expires_at": "2026-04-22T19:49:30.672378+00:00",
+    "details": {
+      "origin": "KCHO",
+      "destination": "KSAT",
+      "aircraft_type": "C25C"
+    }
   }
 }

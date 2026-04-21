@@ -51,10 +51,13 @@ def test_flight_alert_with_tts():
     
     print("3. Announcing airline via TTS...")
     success = tts.speak_flight_alert(
-        "Delta Airlines",
-        "DAL123",
-        origin="Indira Gandhi International Airport",
-        destination="Chhatrapati Shivaji Maharaj International Airport",
+        airline_name="Southwest Airlines",
+        callsign="SWA4389",
+        origin="Hartsfield Jackson Atlanta International Airport",
+        destination="San Antonio International Airport",
+        altitude=10668, # Approx 35,000 feet
+        speed=201.5,    # Approx 451 mph
+        heading=180     # South
     )
     
     if success:
@@ -65,7 +68,7 @@ def test_flight_alert_with_tts():
     print("\n" + "=" * 60)
     print("Test complete! You should have heard:")
     print("  1. Alert sound (beep)")
-    print("  2. Female voice saying 'Flight alert: Delta Airlines DAL123'")
+    print("  2. Female voice saying 'Southwest Airlines SWA4389 Hartsfield Jackson Atlanta International Airport -> San Antonio International Airport. Cruising at 35,000 feet, 451 miles per hour, heading south.'")
 
 if __name__ == "__main__":
     test_flight_alert_with_tts()

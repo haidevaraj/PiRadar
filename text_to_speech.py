@@ -37,6 +37,7 @@ class TextToSpeech:
         self.language = language
         self.tld = tld
         self.tts_engine = self._detect_tts_engine()
+        self._coqui_instance = None  # Lazy load the model only if needed
         logger.info(f"TTS Engine: {self.tts_engine} | Language: {language} | TLD: {tld} | Volume: {volume}%")
 
     def _detect_tts_engine(self) -> str:
@@ -49,40 +50,47 @@ class TextToSpeech:
         except ImportError:
             logger.warning("gTTS not available, install: pip3 install gTTS")
 
-        # Fallback to pyttsx3 (offline synthesis)
+        # Fallback to Coqui TTS (High-quality offline synthesis)
         try:
-            import pyttsx3
-            logger.info("⚠ Using pyttsx3 as fallback (offline voice synthesis)")
-            return "pyttsx3"
+            from TTS.api import TTS
+            logger.info("⚠ Using Coqui TTS as fallback (High-quality offline voice)")
+            return "coqui"
         except ImportError:
             pass
 
         logger.error("✗ No TTS engine available!")
         return None
 
-    def speak_airline_name(self, airline_name: str) -> bool:
+    def _speak_message(self, text: str) -> bool:
         """
-        Speak the airline name through default audio output.
+        Speak a message through the detected audio output.
 
         Args:
-            airline_name: Name of the airline to speak
+            text: The text message to speak
 
         Returns:
             True if successful, False otherwise
         """
-        if not airline_name or not self.tts_engine:
+        if not text or not self.tts_engine:
             return False
 
         try:
             if self.tts_engine == "gtts":
-                return self._speak_with_gtts(airline_name)
-            elif self.tts_engine == "pyttsx3":
-                return self._speak_with_pyttsx3(airline_name)
+                return self._speak_with_gtts(text)
+            elif self.tts_engine == "coqui":
+                return self._speak_with_coqui(text)
         except Exception as exc:
-            logger.error("Error speaking airline name: %s", exc)
+            logger.error("Error speaking message: %s", exc)
             return False
 
         return False
+
+    def _get_cardinal_direction(self, heading: float | None) -> str:
+        """Convert heading degrees to cardinal direction string."""
+        if heading is None: return ""
+        directions = ["north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"]
+        idx = int((heading + 22.5) % 360 // 45)
+        return directions[idx]
 
     def speak_flight_alert(
         self,
@@ -90,6 +98,9 @@ class TextToSpeech:
         callsign: str,
         origin: str | None = None,
         destination: str | None = None,
+        altitude: float | None = None,
+        speed: float | None = None,
+        heading: float | None = None,
     ) -> bool:
         """
         Speak a complete flight alert message.
@@ -99,38 +110,54 @@ class TextToSpeech:
             callsign: Aircraft callsign
             origin: Origin airport label or code
             destination: Destination airport label or code
+            altitude: Altitude in meters
+            speed: Speed in meters per second
+            heading: Heading in degrees
 
         Returns:
             True if successful
         """
-        route_text = ""
+        # Start with airline name and callsign
+        message = f"{airline_name} {callsign}"
+        
+        # Add route information
+        route_parts = []
         if origin and destination:
-            route_text = f" From {origin} to {destination}."
+            route_parts.append(origin)
+            route_parts.append(destination)
         elif origin:
-            route_text = f" From {origin}."
+            route_parts.append(origin)
         elif destination:
-            route_text = f" To {destination}."
+            route_parts.append(destination)
 
-        message = f"Flight alert: {airline_name}. From {origin} to {destination}."
-        if origin is None and destination is None:
-            message = f"Flight alert: {airline_name} {callsign}"
-        elif origin and destination:
-            message = (
-                f"Flight alert: {airline_name}. From {origin} to {destination}."
-            )
-        elif origin:
-            message = f"Flight alert: {airline_name}. From {origin}."
-        elif destination:
-            message = f"Flight alert: {airline_name}. To {destination}."
+        if route_parts:
+            message += f" { ' -> '.join(route_parts) }"
+        
+        message += "." # Always end the route/callsign part with a period
 
-        return self.speak_airline_name(message)
+        # Add live flight metrics
+        details = []
+        if altitude is not None:
+            alt_feet = int(round(altitude * 3.28084))
+            details.append(f"Cruising at {alt_feet:,} feet")
+        if speed is not None:
+            speed_mph = int(round(speed * 2.23694))
+            details.append(f"{speed_mph} miles per hour")
+        if heading is not None:
+            direction = self._get_cardinal_direction(heading)
+            details.append(f"heading {direction}")
+
+        if details:
+            message += " " + ", ".join(details) + "."
+
+        return self._speak_message(message)
 
     def _speak_with_gtts(self, text: str) -> bool:
         """Use Google Text-to-Speech for high-quality real human American female voice (airport announcement style)."""
         try:
             from gtts import gTTS
             
-            logger.info(f"🔊 Speaking via gTTS (American Female Voice): {text}")
+            logger.info(f"🔊 Speaking via gTTS: {text}")
             
             # Create gTTS object with American English voice - normal speed
             tts = gTTS(text=text, lang=self.language, tld=self.tld, slow=False)
@@ -144,23 +171,21 @@ class TextToSpeech:
             _temp_files.append(tmp_path)
             
             try:
-                # Play using ffplay (non-blocking)
-                subprocess.Popen(
+                # Play using ffplay (blocking)
+                subprocess.run(
                     ["ffplay", "-nodisp", "-autoexit", "-v", "0", tmp_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    capture_output=True,
                 )
-                logger.info("✓ gTTS speech started")
+                logger.info("✓ gTTS speech completed")
                 return True
             except FileNotFoundError:
-                # Fallback: try with paplay (PipeWire) - non-blocking
+                # Fallback: try with paplay (PipeWire) - blocking
                 logger.warning("ffplay not found, trying paplay...")
-                subprocess.Popen(
+                subprocess.run(
                     ["paplay", tmp_path],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
+                    capture_output=True,
                 )
-                logger.info("✓ gTTS speech started via paplay")
+                logger.info("✓ gTTS speech completed via paplay")
                 return True
                 
         except ImportError:
@@ -170,26 +195,49 @@ class TextToSpeech:
             logger.error("✗ gTTS speech failed: %s", exc)
             return False
 
-    def _speak_with_pyttsx3(self, text: str) -> bool:
-        """Use pyttsx3 as fallback (synthetic voice, lower quality)."""
+    def _speak_with_coqui(self, text: str) -> bool:
+        """Use Coqui TTS as fallback (High-quality offline VITS model)."""
         try:
-            import pyttsx3
+            from TTS.api import TTS
             
-            logger.info(f"⚠ Speaking via pyttsx3 (fallback): {text}")
+            if self._coqui_instance is None:
+                logger.info("Initializing Coqui TTS model (ljspeech/vits)...")
+                self._coqui_instance = TTS("tts_models/en/ljspeech/vits", gpu=False)
             
-            engine = pyttsx3.init()
-            engine.setProperty("volume", self.volume / 100.0)
-            engine.setProperty("rate", 100)  # Normal speed
+            logger.info(f"🔊 Speaking via Coqui TTS (Offline): {text}")
             
-            # Try to use female voice
-            voices = engine.getProperty("voices")
-            if len(voices) > 1:
-                engine.setProperty("voice", voices[1].id)
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
             
-            engine.say(text)
-            engine.runAndWait()
-            logger.info("✓ pyttsx3 speech started")
-            return True
+            self._coqui_instance.tts_to_file(text=text, file_path=tmp_path)
+            
+            try:
+                # Play using ffplay (blocking)
+                subprocess.run(
+                    ["ffplay", "-nodisp", "-autoexit", "-v", "0", tmp_path],
+                    capture_output=True,
+                )
+                logger.info("✓ Coqui TTS speech completed")
+                return True
+            except FileNotFoundError:
+                # Fallback: try with paplay
+                logger.warning("ffplay not found, trying paplay...")
+                subprocess.run(
+                    ["paplay", tmp_path],
+                    capture_output=True,
+                )
+                logger.info("✓ Coqui TTS speech completed via paplay")
+                return True
+            finally:
+                # Clean up temp file
+                try:
+                    Path(tmp_path).unlink()
+                except:
+                    pass
+
+        except ImportError:
+            logger.error("✗ TTS (Coqui) not installed. Install: pip3 install TTS")
+            return False
         except Exception as exc:
-            logger.error("✗ pyttsx3 speech failed: %s", exc)
+            logger.error("✗ Coqui TTS speech failed: %s", exc)
             return False

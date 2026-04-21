@@ -365,7 +365,7 @@ When a new flight enters your detection radius:
 1. 🔊 **Alert sound plays** (chime.mp3 or alert.mp3)
 2. 📱 **OLED shows flight details**
 3. 🗣️ **Voice announcement** (if enabled)
-   - "Flight alert: United Airlines. From Houston IAH to Denver DEN."
+   - "Southwest Airlines SWA4389 Hartsfield Jackson Atlanta International Airport -> San Antonio International Airport. Cruising at 35,000 feet, 451 miles per hour, heading south."
 4. 📝 **Logged to console**
 
 **Squawk codes:**
