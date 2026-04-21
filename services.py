@@ -1,8 +1,11 @@
 import logging
 import time
+import threading
+import re
 from collections.abc import Callable
 from datetime import datetime, time as clock_time
 from pathlib import Path
+from queue import Queue
 
 import pygame
 import requests
@@ -11,8 +14,10 @@ from airportdb_client import AirportDbClient
 from formatter import build_alert_event, get_airline_name
 from flightaware_client import FlightAwareClient
 from lcd_display import NullDisplay
+import models
 from models import FlightState
 from opensky_client import OpenSkyClient
+from text_to_speech import TextToSpeech
 
 
 logger = logging.getLogger(__name__)
@@ -182,6 +187,11 @@ class FlightTracker:
         flightaware_client: FlightAwareClient | None = None,
         airportdb_client: AirportDbClient | None = None,
         display: NullDisplay | None = None,
+        tts_player: TextToSpeech | None = None,
+        enable_airline_announcement: bool = True,
+        announcement_delay_seconds: float = 0.5,
+        enable_airportdb_lookup: bool = True,
+        airportdb_throttle_minutes: int = 1,
     ) -> None:
         self.client = client
         self.alert_cache = alert_cache
@@ -208,6 +218,103 @@ class FlightTracker:
             self.flightaware_client.status_callback = self._show_display_error
         if self.airportdb_client is not None:
             self.airportdb_client.status_callback = self._show_display_error
+        self.tts_player = tts_player or TextToSpeech(volume=100)
+        self.enable_airline_announcement = enable_airline_announcement
+        
+        # Sequential announcement processing
+        self._announcement_queue: Queue = Queue()
+        self._announcement_lock = threading.Lock()
+        self._announcement_thread_active = False
+        self._start_announcement_processor()
+        
+        # AirportDB throttling configuration
+        self.enable_airportdb_lookup = enable_airportdb_lookup
+        self.airportdb_throttle_seconds = airportdb_throttle_minutes * 60
+        self.last_airportdb_call_time = 0.0
+        self.announcement_delay_seconds = announcement_delay_seconds
+
+    def _start_announcement_processor(self) -> None:
+        """Start the background thread that processes announcements sequentially."""
+        if self._announcement_thread_active:
+            return
+        self._announcement_thread_active = True
+        processor_thread = threading.Thread(
+            target=self._announcement_processor_loop,
+            daemon=True,
+        )
+        processor_thread.start()
+
+    def _announcement_processor_loop(self) -> None:
+        """Process announcements one at a time from the queue."""
+        while self._announcement_thread_active:
+            try:
+                # Get next announcement (blocks until available)
+                announcement = self._announcement_queue.get(timeout=0.5)
+                if announcement is None:
+                    # Sentinel value to stop
+                    break
+                airline, callsign, origin, destination = announcement
+                self._play_announcement(airline, callsign, origin, destination)
+            except Exception:
+                # Queue timeout, continue looping
+                pass
+
+    def _play_announcement(
+        self,
+        airline: str,
+        callsign: str,
+        origin: str | None,
+        destination: str | None,
+    ) -> None:
+        """Play a single announcement to audio."""
+        try:
+            # Wait for alert sound to finish (typical alert sound is ~0.3 seconds)
+            time.sleep(0.3)
+            logger.info(
+                "Playing announcement: %s %s %s -> %s",
+                airline,
+                callsign,
+                origin,
+                destination,
+            )
+            self.tts_player.speak_flight_alert(airline, callsign, origin, destination)
+            logger.info("Announcement completed")
+        except Exception as exc:
+            logger.error("Text-to-speech announcement failed: %s", exc)
+
+    def _trim_airport_code(self, airport_label: str | None) -> str | None:
+        """
+        Trim airport ICAO code from formatted airport label.
+        Example: "Birmingham-Shuttlesworth International Airport (KBHM)" -> "Birmingham-Shuttlesworth International Airport"
+        """
+        if not airport_label:
+            return airport_label
+        
+        # Match and remove (XXXX) at the end where XXXX is the airport code
+        trimmed = re.sub(r'\s*\([A-Z0-9]{4}\)\s*$', '', airport_label)
+        return trimmed if trimmed else airport_label
+
+    def _should_call_airportdb(self, flight_details: 'models.FlightDetails | None') -> bool:
+        """
+        Smart check to determine if AirportDB lookup is necessary.
+        Avoid unnecessary API calls.
+        """
+        if not self.enable_airportdb_lookup or self.airportdb_client is None:
+            return False
+        
+        if flight_details is None:
+            return False
+        
+        # Check throttling
+        now = time.time()
+        if now - self.last_airportdb_call_time < self.airportdb_throttle_seconds:
+            logger.debug("AirportDB call throttled (%.0f seconds remaining)", 
+                        self.airportdb_throttle_seconds - (now - self.last_airportdb_call_time))
+            return False
+        
+        # Only call if we have airport codes to look up
+        has_airport_data = flight_details.origin or flight_details.destination
+        return bool(has_airport_data)
 
     def display_startup_banner(self) -> None:
         location = self.location_service.get_location_name(self.latitude, self.longitude)
@@ -237,8 +344,19 @@ class FlightTracker:
         airline = get_airline_name(flight.callsign, self.airline_map)
         if airline and self.flightaware_client is not None:
             flight_details = self.flightaware_client.get_flight_details(flight.callsign)
-        if airline and self.airportdb_client is not None and flight_details is not None:
+        
+        # Only call AirportDB if smart checks allow it (throttled + necessary)
+        if self._should_call_airportdb(flight_details):
+            self.last_airportdb_call_time = time.time()
             flight_details = self.airportdb_client.enrich_flight_details(flight_details)
+        
+        # Trim airport codes from labels for display
+        if flight_details is not None:
+            flight_details = models.FlightDetails(
+                origin=self._trim_airport_code(flight_details.origin),
+                destination=self._trim_airport_code(flight_details.destination),
+                aircraft_type=flight_details.aircraft_type,
+            )
 
         alert = build_alert_event(
             flight,
@@ -248,10 +366,40 @@ class FlightTracker:
             flight_details=flight_details,
         )
         self.audio_player.play(alert.sound_path)
+        
+        # Queue announcement for sequential processing (no delay, queue manages it)
+        if self.enable_airline_announcement and airline and self.tts_player:
+            origin = flight_details.origin if flight_details is not None else None
+            destination = flight_details.destination if flight_details is not None else None
+            self._announcement_queue.put((airline, flight.callsign, origin, destination))
+        
         self.display.show_alert(alert)
         logger.info("\n----------------------------")
         logger.info("%s", alert.line_1)
         logger.info("%s", alert.line_2)
+
+    def _announce_airline_in_background(
+        self,
+        airline: str,
+        callsign: str,
+        origin: str | None,
+        destination: str | None,
+    ) -> None:
+        """Announce airline name after alert sound plays (in background thread)."""
+        try:
+            # Wait 1 second for alert sound to finish playing
+            time.sleep(1.5)
+            logger.info(
+                "Starting airline announcement: %s %s %s -> %s",
+                airline,
+                callsign,
+                origin,
+                destination,
+            )
+            self.tts_player.speak_flight_alert(airline, callsign, origin, destination)
+            logger.info("Airline announcement completed")
+        except Exception as exc:
+            logger.error("Text-to-speech announcement failed: %s", exc)
 
     def run_forever(self) -> None:
         self.display_startup_banner()

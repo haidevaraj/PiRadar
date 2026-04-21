@@ -13,6 +13,7 @@ from flightaware_client import FlightAwareClient
 from lcd_display import build_display
 from opensky_client import OpenSkyClient
 from services import AlertCache, AudioPlayer, FlightTracker, LocationService
+from text_to_speech import TextToSpeech
 
 
 def configure_logging(logging_settings: LoggingSettings, log_path: Path) -> None:
@@ -96,6 +97,8 @@ def main() -> None:
             request_timeout_seconds=airportdb_settings.request_timeout_seconds,
         ),
         display=build_display(display_settings=display_settings, airplane_facts_path=paths.airplane_facts_path),
+        tts_player=TextToSpeech(volume=100, language="en-IN"),
+        enable_airline_announcement=True,
     )
     tracker.run_forever()
 
