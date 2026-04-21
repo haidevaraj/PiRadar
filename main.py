@@ -98,7 +98,7 @@ def main() -> None:
             request_timeout_seconds=airportdb_settings.request_timeout_seconds,
         ),
         display=build_display(display_settings=display_settings, airplane_facts_path=paths.airplane_facts_path),
-        tts_player=TextToSpeech(volume=100, language="en", tld="co.in"),
+        tts_player=TextToSpeech(volume=100, language="en", tld="com"),
         enable_airline_announcement=True,
         aeroapi_max_altitude_feet=flightaware_settings.max_altitude_feet,
     )
