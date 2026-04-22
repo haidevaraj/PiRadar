@@ -304,5 +304,14 @@
       "aircraft_type": "B738",
       "delay_minutes": 11
     }
+  },
+  "SKW5696": {
+    "expires_at": "2026-04-23T16:37:45.280217+00:00",
+    "details": {
+      "origin": "KHOB",
+      "destination": "KIAH",
+      "aircraft_type": "CRJ2",
+      "delay_minutes": 48
+    }
   }
 }

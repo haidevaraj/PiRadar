@@ -218,7 +218,6 @@ class FlightTracker:
         enable_airline_announcement: bool = True,
         announcement_delay_seconds: float = 0.5,
         enable_airportdb_lookup: bool = True,
-        airportdb_throttle_minutes: int = 1,
         aeroapi_max_altitude_feet: int = 0,
     ) -> None:
         self.client = client
@@ -255,8 +254,6 @@ class FlightTracker:
         
         # AirportDB configuration (free with internal caching)
         self.enable_airportdb_lookup = enable_airportdb_lookup
-        self.airportdb_throttle_seconds = airportdb_throttle_minutes * 60
-        self._last_airportdb_call = 0.0
 
     def _play_announcement(
         self,
@@ -329,8 +326,7 @@ class FlightTracker:
         if not (needs_lookup(flight_details.origin) or needs_lookup(flight_details.destination)):
             return False
 
-        # 2. Enforce time-based throttling to limit frequency of resolutions.
-        return time.monotonic() - self._last_airportdb_call >= self.airportdb_throttle_seconds
+        return True
 
     def display_startup_banner(self) -> None:
         location = self.location_service.get_location_name(self.latitude, self.longitude)
@@ -373,7 +369,6 @@ class FlightTracker:
             
             if self._should_call_airportdb(flight_details):
                 flight_details = self.airportdb_client.enrich_flight_details(flight_details)
-                self._last_airportdb_call = time.monotonic()
             
             if flight_details is not None:
                 flight_details = models.FlightDetails(

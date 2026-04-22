@@ -428,6 +428,18 @@ Useful service commands:
 - Restart: `sudo systemctl restart flighttrackr.service`
 - Disable autostart: `sudo systemctl disable flighttrackr.service`
 
+## Flight Aware API 
+The FlightAware AeroAPI acts as an enrichment layer for your tracker. While the OpenSky API tells you where a plane is, the AeroAPI tells you who it is and where it's going.
+
+What the FlightAware API receives and returns
+In your current implementation, here is how the data exchange works:
+
+The Input (Request): Your script sends the Callsign (e.g., UAL672) and a time window to the API.
+The Output (Response): The API returns a "Flight Object" containing:
+Route: Origin and Destination airport codes (e.g., KEWR to KIAH).
+Aircraft Type: The specific model (e.g., B39M for a Boeing 737 MAX 9).
+Live Status: Whether the flight is "On Time," "Delayed," or "Arrived."
+Timestamps: Precise scheduled vs. actual departure/arrival times, which your script uses to calculate delay_minutes.
 ## How FlightAware usage is minimized
 
 - FlightAware is only queried for callsigns whose prefix matches a known airline in `assets/icao_to_airline_names.json`
