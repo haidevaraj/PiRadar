@@ -311,9 +311,9 @@ class FlightTracker:
         if not self.enable_airportdb_lookup or self.airportdb_client is None:
             return False
         
-        # Without FlightAware, we cannot discover airport codes for new callsigns.
-        # We only need to call AirportDB if we already have codes that need names.
-        if not flight_details:
+        # If we have no details, we can't look up codes because OpenSky doesn't 
+        # provide them. We only proceed if we have a record that needs name resolution.
+        if not flight_details or (not flight_details.origin and not flight_details.destination):
             return False
 
         # 1. Check if the values actually look like 4-character ICAO codes that need enrichment.
