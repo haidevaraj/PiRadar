@@ -36,6 +36,7 @@ class AirportDbClient:
             origin=origin,
             destination=destination,
             aircraft_type=flight_details.aircraft_type,
+            delay_minutes=flight_details.delay_minutes,
         )
 
     def _resolve_airport_label(self, code: str | None) -> str | None:

@@ -73,6 +73,3 @@ def test_flight_alert_with_tts():
 
 if __name__ == "__main__":
     test_flight_alert_with_tts()
-
-if __name__ == "__main__":
-    test_flight_alert_with_tts()
