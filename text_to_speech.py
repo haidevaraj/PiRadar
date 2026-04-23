@@ -123,19 +123,14 @@ class TextToSpeech:
         message = f"{airline_name} {callsign}"
         
         # Add route information
-        route_parts = []
         if origin and destination:
-            route_parts.append(origin)
-            route_parts.append(destination)
+            message += f", from {origin} to {destination}."
         elif origin:
-            route_parts.append(origin)
+            message += f", from {origin}."
         elif destination:
-            route_parts.append(destination)
-
-        if route_parts:
-            message += f" { ' -> '.join(route_parts) }"
-        
-        message += "." # Always end the route/callsign part with a period
+            message += f", to {destination}."
+        else:
+            message += "."
 
         # Add live flight metrics
         details = []

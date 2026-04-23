@@ -13,6 +13,7 @@ from flight_database import FlightDatabase
 from lcd_display import build_display
 from opensky_client import OpenSkyClient
 from services import AlertCache, AudioPlayer, FlightTracker, LocationService
+from route_updater import check_and_update_routes
 from text_to_speech import TextToSpeech
 
 
@@ -47,6 +48,9 @@ def main() -> None:
     audio_settings = settings.audio
     display_settings = settings.display
 
+    # Perform weekly route update check before initializing tracker
+    check_and_update_routes(paths.airline_routes_path)
+
     tracker = FlightTracker(
         client=OpenSkyClient(
             client_id=opensky_settings.client_id,
@@ -61,6 +65,7 @@ def main() -> None:
         alert_cache=AlertCache(tracker_settings.cooldown_minutes),
         airline_map=load_airline_map(paths.airline_map_path),
         aircraft_type_map=load_aircraft_type_map(paths.aircraft_type_map_path),
+        airline_routes_path=paths.airline_routes_path,
         assets_dir=paths.assets_dir,
         latitude=tracker_settings.latitude,
         longitude=tracker_settings.longitude,

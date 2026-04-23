@@ -22,7 +22,9 @@ def show_menu():
     print("5. Get airline by callsign prefix")
     print("6. Cleanup expired records")
     print("7. Export database to JSON")
-    print("8. Exit")
+    print("8. Bulk import routes from JSON")
+    print("9. Clear all data (Wipe database)")
+    print("10. Exit")
     print("="*60)
 
 
@@ -124,6 +126,52 @@ def export_to_json(db: FlightDatabase):
     print(f"✓ Exported {len(flights)} flights and {len(routes)} routes to {export_file}")
 
 
+def bulk_import(db: FlightDatabase):
+    """Import a list of routes from a JSON file."""
+    import json
+    print("\n--- Bulk Import from JSON ---")
+    print("File should be a list of objects: [{\"callsign\": \"SWA123\", \"origin\": \"KDAL\", \"destination\": \"KAUS\"}, ...]")
+    path_str = input("Enter path to JSON file: ").strip()
+    path = Path(path_str)
+    
+    if not path.exists():
+        print(f"✗ File not found: {path}")
+        return
+        
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        count = 0
+        for item in data:
+            db.store_flight_details(
+                callsign=item.get("callsign", "").upper(),
+                origin=item.get("origin", "").upper(),
+                destination=item.get("destination", "").upper(),
+                aircraft_type=item.get("aircraft_type"),
+                expires_in_hours=8760  # Default to 1 year for manual imports
+            )
+            count += 1
+        print(f"✓ Successfully imported {count} flight routes.")
+    except Exception as e:
+        print(f"✗ Import failed: {e}")
+
+def wipe_database(db_path: Path):
+    """Completely wipe the database by deleting the file."""
+    print("\n--- Wipe Database ---")
+    print(f"Target: {db_path}")
+    confirm = input("⚠ Are you sure you want to delete ALL cached flights and routes? (y/N): ").strip().lower()
+    
+    if confirm == 'y':
+        try:
+            db_path.unlink(missing_ok=True)
+            print("✓ Database file deleted. It will be recreated empty on next app start.")
+            sys.exit(0)
+        except Exception as e:
+            print(f"✗ Failed to delete database: {e}")
+    else:
+        print("Operation cancelled.")
+
 def main():
     """Main interactive menu loop."""
     parser = argparse.ArgumentParser(description="Manage flight database")
@@ -135,7 +183,7 @@ def main():
     
     while True:
         show_menu()
-        choice = input("Enter your choice (1-8): ").strip()
+        choice = input("Enter your choice (1-10): ").strip()
         
         try:
             if choice == "1":
@@ -153,6 +201,10 @@ def main():
             elif choice == "7":
                 export_to_json(db)
             elif choice == "8":
+                bulk_import(db)
+            elif choice == "9":
+                wipe_database(db_path)
+            elif choice == "10":
                 print("\nGoodbye!")
                 sys.exit(0)
             else:

@@ -21,6 +21,7 @@ class PathSettings:
     base_dir: Path
     assets_dir: Path
     airline_map_path: Path
+    airline_routes_path: Path
     aircraft_type_map_path: Path
     airplane_facts_path: Path
     log_path: Path
@@ -203,6 +204,7 @@ def load_settings() -> Settings:
         base_dir=BASE_DIR,
         assets_dir=ASSETS_DIR,
         airline_map_path=BASE_DIR / str(paths_table["airline_map_path"]),
+        airline_routes_path=BASE_DIR / "assets/airline_routes.json",
         aircraft_type_map_path=BASE_DIR / str(paths_table["aircraft_type_map_path"]),
         airplane_facts_path=BASE_DIR / str(paths_table["airplane_facts_path"]),
         log_path=BASE_DIR / str(paths_table["log_path"]),
